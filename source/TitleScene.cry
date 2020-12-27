@@ -1,0 +1,19 @@
+import Graphics2D;
+import Graphics2DText;
+import TwoCansAlpha4;
+
+class TitleScene : AbstractScene {
+	field image = Images.get("title-screen.png");
+
+	function update(inputManager, events) {
+		if (inputManager.isKeyPressed(KeyboardKey.NUM_1)) {
+			this.switchScene(new MainScene(true));
+		} else if (inputManager.isKeyPressed(KeyboardKey.NUM_2)) {
+			this.switchScene(new MainScene(false));
+		}
+	}
+
+	function render() {
+		this.image.draw(0, 0);
+	}
+}

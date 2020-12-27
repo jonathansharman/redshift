@@ -1,0 +1,226 @@
+import Graphics2D;
+import Graphics2DText;
+import Math;
+import Random;
+import TwoCansAlpha4;
+
+const X_RES = $var["screen_width"];
+const Y_RES = $var["screen_height"];
+
+const LEVEL_DURATION = 1800; // 30 s
+const TIMER_HEIGHT = 15.0;
+
+const MAX_ACCELERATION = 0.3;
+const DRAG = 0.02;
+const MAX_SPEED = MAX_ACCELERATION / DRAG;
+
+const COLLECTIBLE_X_PADDING = 20.0;
+const COLLECTIBLE_Y_PADDING = 28.0;
+
+const MATCH_TOLERANCE = 0.1 * MAX_SPEED;
+
+const STARTING_LEVEL = 5;
+
+function drawCentered(image, x, y) {
+	image.draw(x - 0.5 * image.width, y - 0.5 * image.height);
+}
+
+class Collectible {
+	field pos;
+	field requiredSpeed;
+	field image;
+
+	constructor(pos, requiredSpeed, color) {
+		this.pos = pos;
+		this.requiredSpeed = requiredSpeed;
+		this.image = MainScene.font
+			.setColor(color[0], color[1], color[2])
+			.render("@");
+	}
+}
+
+class MainScene : AbstractScene {
+	static field font = FontResource
+		.fromResource("MontserratBold-DOWZd.ttf")
+		.getRenderer()
+		.setSize(14);
+	static field colors =
+		[ [0, 255, 0]
+		, [255, 255, 0]
+		, [255, 0, 0]
+		];
+
+	field wrapMode = false;
+	field timer = LEVEL_DURATION;
+
+	field pos = [0.5 * X_RES, 0.5 * Y_RES];
+	field vel = [0.0, 0.0];
+	field facingRight = true;
+	field characterImage;
+
+	field collectibles = [];
+	field maxCollectibles = STARTING_LEVEL;
+
+	field score = 0;
+	field scoreText = MainScene.font.setColor(255, 255, 255).render("0");
+
+	constructor(wrapMode) {
+		this.wrapMode = wrapMode;
+		this.spawnCollectibles(this.maxCollectibles);
+	}
+
+	function spawnCollectibles(count) {
+		for (i = 0; i < count; ++i) {
+			pos =
+				[ COLLECTIBLE_X_PADDING + Random.randomFloat() * (X_RES - 2.0 * COLLECTIBLE_X_PADDING)
+				, TIMER_HEIGHT + COLLECTIBLE_Y_PADDING + Random.randomFloat() * (Y_RES - 2.0 * COLLECTIBLE_Y_PADDING)
+				];
+			requiredSpeed = Random.randomFloat() * MAX_SPEED;
+			color = this.computeColor(requiredSpeed / MAX_SPEED);
+			this.collectibles.add(new Collectible(pos, requiredSpeed, color));		
+		}
+	}
+
+	function update(inputManager, events) {
+		// Count down.
+		--this.timer;
+		if (this.timer == 0) {
+			this.switchScene(new GameOverScene(this.score, this.wrapMode));
+		}
+		// Get acceleration.
+		accel = [0.0, 0.0];
+		if (inputManager.isKeyPressed(KeyboardKey.RIGHT)) {
+			accel[0] += MAX_ACCELERATION;
+			this.facingRight = true;
+		}
+		if (inputManager.isKeyPressed(KeyboardKey.LEFT)) {
+			accel[0] -= MAX_ACCELERATION;
+			this.facingRight = false;
+		}
+		if (inputManager.isKeyPressed(KeyboardKey.DOWN)) {
+			accel[1] += MAX_ACCELERATION;
+		}
+		if (inputManager.isKeyPressed(KeyboardKey.UP)) {
+			accel[1] -= MAX_ACCELERATION;
+		}
+		if (accel[0] != 0.0 || accel[1] != 0.0) {
+			accelMagnitude = (accel[0] * accel[0] + accel[1] * accel[1]) ** 0.5;
+			accel[0] *= MAX_ACCELERATION / accelMagnitude;
+			accel[1] *= MAX_ACCELERATION / accelMagnitude;
+		}
+		// Update velocity.
+		this.vel[0] += accel[0];
+		this.vel[1] += accel[1];
+		for (i = 0; i < this.vel.length; ++i) {
+			this.vel[i] *= 1.0 - DRAG;
+		}
+		// Render character.
+		speed = (this.vel[0] * this.vel[0] + this.vel[1] * this.vel[1]) ** 0.5;
+		color = this.computeColor(speed / MAX_SPEED);
+		this.characterImage = MainScene.font
+			.setColor(color[0], color[1], color[2])
+			.render(this.facingRight ? "(> ' . ' )>" : "<( ' . ' <)");
+		// Update position.
+		this.pos[0] += this.vel[0];
+		this.pos[1] += this.vel[1];
+		halfWidth = 0.5 * this.characterImage.width;
+		halfHeight = 0.5 * this.characterImage.height;
+		if (this.wrapMode) {
+			while (this.pos[0] < 0.0 && this.vel[0] < 0.0) {
+				this.pos[0] += X_RES;
+			}
+			while (this.pos[0] > X_RES && this.vel[0] > 0.0) {
+				this.pos[0] -= X_RES;
+			}
+			while (this.pos[1] < TIMER_HEIGHT && this.vel[1] < 0.0) {
+				this.pos[1] += Y_RES - TIMER_HEIGHT;
+			}
+			while (this.pos[1] > Y_RES && this.vel[1] > 0.0) {
+				this.pos[1] -= Y_RES - TIMER_HEIGHT;
+			}
+		} else {
+			if (this.pos[0] < halfWidth && this.vel[0] < 0.0) {
+				this.vel[0] *= -1;
+				this.pos[0] = halfWidth;
+				this.facingRight = true;
+			}
+			if (this.pos[0] > X_RES - 0.5 * this.characterImage.width && this.vel[0] > 0.0) {
+				this.vel[0] *= -1;
+				this.pos[0] = X_RES - halfWidth;
+				this.facingRight = false;
+			}
+			if (this.pos[1] < TIMER_HEIGHT + halfHeight && this.vel[1] < 0.0) {
+				this.vel[1] *= -1;
+				this.pos[1] = TIMER_HEIGHT + halfHeight;
+			}
+			if (this.pos[1] > Y_RES - halfHeight && this.vel[1] > 0.0) {
+				this.vel[1] *= -1;
+				this.pos[1] = Y_RES - halfHeight;
+			}
+		}
+		// Check for collisions with collectibles.
+		for (i = 0; i < this.collectibles.length; ++i) {
+			collectible = this.collectibles[i];
+			collision = this.pos[0] + halfWidth >= collectible.pos[0] - 0.5 * collectible.image.width
+				&& this.pos[0] - halfWidth <= collectible.pos[0] + 0.5 * collectible.image.width
+				&& this.pos[1] + halfHeight >= collectible.pos[1] - 0.5 * collectible.image.height
+				&& this.pos[1] - halfHeight <= collectible.pos[1] + 0.5 * collectible.image.height;
+			if (collision) {
+				// Only collect if the colors are close enough.
+				if (Math.abs(speed - collectible.requiredSpeed) < MATCH_TOLERANCE) {
+					// Increase score.
+					++this.score;
+					this.scoreText = MainScene.font.setColor(255, 255, 255).render(this.score);
+					// Remove collectible.
+					this.collectibles.remove(i);
+					--i;
+				}
+			}
+		}
+		if (this.collectibles.length == 0) {
+			// Increase and respawn collectibles; reset timer.
+			++this.maxCollectibles;
+			this.spawnCollectibles(this.maxCollectibles);
+			this.timer = LEVEL_DURATION;
+		}
+	}
+
+	// proportion in [0.0, 1.0]
+	function computeColor(proportion) {
+		colorThreshold = 1.0 / (MainScene.colors.length - 1);
+		for (i = 0; i < MainScene.colors.length - 1; ++i) {
+			lower = i * colorThreshold;
+			upper = (i + 1) * colorThreshold;
+			if (lower <= proportion && proportion <= upper) {
+				t = (proportion - lower) / colorThreshold;
+				c1 = MainScene.colors[i];
+				c2 = MainScene.colors[i + 1];
+				return
+					[ Math.floor(c1[0] + t * (c2[0] - c1[0]))
+					, Math.floor(c1[1] + t * (c2[1] - c1[1]))
+					, Math.floor(c1[2] + t * (c2[2] - c1[2]))
+					];
+			}
+		}
+		return MainScene.colors[-1];
+	}
+
+	function render() {
+		Graphics2D.Draw.fill(0, 0, 0);
+		// Draw collectibles.
+		for (collectible : this.collectibles) {
+			drawCentered(collectible.image, collectible.pos[0], collectible.pos[1]);
+		}
+		// Draw character.
+		drawCentered(this.characterImage, this.pos[0], this.pos[1]);
+		// Draw timer.
+		Graphics2D.Draw.rectangle(0, 0, X_RES, TIMER_HEIGHT, 0, 0, 0);
+		timerColor = this.computeColor(1.0 - 1.0 * this.timer / LEVEL_DURATION);
+		Graphics2D.Draw.rectangle
+			( 0, 0
+			, this.timer * X_RES / LEVEL_DURATION, TIMER_HEIGHT - 1
+			, timerColor[0], timerColor[1], timerColor[2]);
+		// Draw score.
+		this.scoreText.draw(0, TIMER_HEIGHT);
+	}
+}

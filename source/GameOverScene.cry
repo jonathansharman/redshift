@@ -1,0 +1,33 @@
+import Graphics2D;
+import Graphics2DText;
+import TwoCansAlpha4;
+
+class GameOverScene : AbstractScene {
+	field gameOverText;
+	field scoreText;
+	field restartText;
+
+	constructor(score, wrapMode) {
+		font = FontResource
+			.fromResource("MontserratBold-DOWZd.ttf")
+			.getRenderer();
+		this.gameOverText = font.setSize(28).setColor(255, 0, 0).render("Game Over");
+		font.setColor(255, 255, 255);
+		this.scoreText = font.setSize(16).render((wrapMode ? "Wrap-around" : "Wall") + " mode score: " + score);
+		this.restartText = font.setSize(12).render("Press Space to restart.");
+	}
+
+	function update(inputManager, events) {
+		if (inputManager.isKeyPressed(KeyboardKey.SPACE)) {
+			this.switchScene(new TitleScene());
+		}
+	}
+
+	function render() {
+		Graphics2D.Draw.fill(0, 0, 0);
+		xCenter = 0.5 * X_RES;
+		drawCentered(this.gameOverText, xCenter, 0.5 * Y_RES);
+		drawCentered(this.scoreText, xCenter, 0.62 * Y_RES);
+		drawCentered(this.restartText, xCenter, 0.7 * Y_RES);
+	}
+}
