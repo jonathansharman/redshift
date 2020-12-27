@@ -26,8 +26,8 @@ class GameOverScene : AbstractScene {
 	function render() {
 		Graphics2D.Draw.fill(0, 0, 0);
 		xCenter = 0.5 * X_RES;
-		drawCentered(this.gameOverText, xCenter, 0.5 * Y_RES);
-		drawCentered(this.scoreText, xCenter, 0.62 * Y_RES);
-		drawCentered(this.restartText, xCenter, 0.7 * Y_RES);
+		drawCentered(this.gameOverText, xCenter, 0.4 * Y_RES);
+		drawCentered(this.scoreText, xCenter, 0.52 * Y_RES);
+		drawCentered(this.restartText, xCenter, 0.6 * Y_RES);
 	}
 }
